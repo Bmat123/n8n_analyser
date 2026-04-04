@@ -62,7 +62,7 @@ ALL_RULES
   ├── dataPolicyRules     → DP-001, DP-002, DP-003, DP-004, DP-005
   ├── dangerousNodesRules → DN-001, DN-002, DN-003, DN-004
   ├── expressionInjRules  → EXP-001, EXP-002
-  └── hygieneRules        → HYG-001, HYG-002, HYG-003
+  └── hygieneRules        → HYG-001, HYG-002, HYG-003, HYG-004
 ```
 
 ---

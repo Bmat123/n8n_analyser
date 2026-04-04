@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 import { hygieneRules } from "../../src/analyzer/rules/hygiene.js";
 import {
-  workflow, webhookNode, scheduleNode, httpNode, genericNode, codeNode,
+  workflow, webhookNode, scheduleNode, httpNode, genericNode,
   run, expectRule, expectNoRule, expectRuleCount, chain, B,
 } from "../helpers.js";
 
@@ -96,6 +96,53 @@ describe("HYG-002 — orphaned nodes", () => {
   it("does NOT flag an empty workflow", () => {
     const wf = workflow([]);
     expectNoRule(run(hygieneRules, wf), "HYG-002");
+  });
+});
+
+// ─── HYG-004: All trigger nodes disabled ─────────────────────────────────────
+
+describe("HYG-004 — all trigger nodes disabled", () => {
+  it("fires when the only trigger node is disabled", () => {
+    const hook = webhookNode("Trigger", {}, { disabled: true });
+    const worker = httpNode("Worker", { url: "https://api.example.com" });
+    const wf = workflow([hook, worker], { active: false });
+    expectRule(run(hygieneRules, wf), "HYG-004");
+  });
+
+  it("fires once per disabled trigger when multiple triggers are all disabled", () => {
+    const hook1 = webhookNode("Webhook", {}, { disabled: true });
+    const hook2 = scheduleNode("Schedule");
+    // Override schedule to be disabled
+    const disabledSchedule = { ...hook2, disabled: true };
+    const wf = workflow([hook1, disabledSchedule]);
+    expectRuleCount(run(hygieneRules, wf), "HYG-004", 2);
+  });
+
+  it("fires for inactive workflows too (not just active ones)", () => {
+    const hook = webhookNode("Trigger", {}, { disabled: true });
+    const wf = workflow([hook], { active: false });
+    expectRule(run(hygieneRules, wf), "HYG-004");
+  });
+
+  // ── False positives ──────────────────────────────────────────────────────
+
+  it("does NOT fire when at least one trigger is enabled", () => {
+    const disabled = webhookNode("Old Trigger", {}, { disabled: true });
+    const enabled = scheduleNode("Active Schedule");
+    const wf = workflow([disabled, enabled]);
+    expectNoRule(run(hygieneRules, wf), "HYG-004");
+  });
+
+  it("does NOT fire when there are no trigger nodes at all (HYG-001 covers that)", () => {
+    const worker = httpNode("Worker", { url: "https://api.example.com" });
+    const wf = workflow([worker]);
+    expectNoRule(run(hygieneRules, wf), "HYG-004");
+  });
+
+  it("does NOT fire when the trigger is enabled", () => {
+    const hook = webhookNode("Trigger", { authentication: "headerAuth" });
+    const wf = workflow([hook]);
+    expectNoRule(run(hygieneRules, wf), "HYG-004");
   });
 });
 

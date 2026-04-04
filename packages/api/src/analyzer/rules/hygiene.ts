@@ -127,4 +127,36 @@ const hyg003: RuleRunner = {
   },
 };
 
-export const hygieneRules: RuleRunner[] = [hyg001, hyg002, hyg003];
+// ─── HYG-004 ──────────────────────────────────────────────────────────────────
+
+const hyg004: RuleRunner = {
+  definition: {
+    id: "HYG-004",
+    severity: "medium",
+    category: "workflow_hygiene",
+    title: "All trigger nodes are disabled",
+    description:
+      "The workflow has one or more trigger nodes, but every trigger is disabled. The workflow can never execute — any execution attempt will silently do nothing.",
+    remediation:
+      "Re-enable at least one trigger node, or delete the disabled triggers and add a working one. If the workflow is intentionally paused, mark it inactive rather than disabling its triggers.",
+  },
+  run({ workflow }) {
+    const triggerNodes = workflow.nodes.filter((n) => isTriggerNode(n.type));
+    if (triggerNodes.length === 0) return []; // no triggers at all — covered by HYG-001
+
+    const allDisabled = triggerNodes.every((n) => n.disabled === true);
+    if (!allDisabled) return [];
+
+    return triggerNodes.map((n) => ({
+      ruleId: "HYG-004",
+      severity: "medium" as const,
+      category: "workflow_hygiene",
+      title: `Trigger node disabled: "${n.name}"`,
+      description: `Trigger node "${n.name}" (${n.type}) is disabled. All trigger nodes in this workflow are disabled — the workflow can never start.`,
+      node: { id: n.id, name: n.name, type: n.type, position: n.position },
+      remediation: hyg004.definition.remediation,
+    }));
+  },
+};
+
+export const hygieneRules: RuleRunner[] = [hyg001, hyg002, hyg003, hyg004];
