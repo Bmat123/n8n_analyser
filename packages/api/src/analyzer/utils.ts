@@ -135,6 +135,20 @@ export const NodeType = {
   READ_WRITE_FILE: `${BASE}readWriteFile`,
   READ_BINARY_FILE: `${BASE}readBinaryFile`,
   WRITE_BINARY_FILE: `${BASE}writeBinaryFile`,
+  // Supply chain / data flow
+  RESPOND_TO_WEBHOOK: `${BASE}respondToWebhook`,
+  EXECUTE_WORKFLOW: `${BASE}executeWorkflow`,
+  GOOGLE_SHEETS: `${BASE}googleSheets`,
+  AIRTABLE: `${BASE}airtable`,
+  GMAIL: `${BASE}gmail`,
+  EMAIL_SEND: `${BASE}emailSend`,
+  SEND_EMAIL: `${BASE}sendEmail`,
+  SLACK: `${BASE}slack`,
+  TELEGRAM: `${BASE}telegram`,
+  DISCORD: `${BASE}discord`,
+  MICROSOFT_TEAMS: `${BASE}microsoftTeams`,
+  SCHEDULE_TRIGGER: `${BASE}scheduleTrigger`,
+  CRON: `${BASE}cron`,
 } as const;
 
 export const CODE_NODE_TYPES = new Set<string>([
@@ -156,6 +170,29 @@ export const SANITIZATION_NODE_TYPES = new Set<string>([
   NodeType.SET,
   NodeType.FILTER,
 ]);
+
+export const CHAT_NODE_TYPES = new Set<string>([
+  NodeType.SLACK,
+  NodeType.TELEGRAM,
+  NodeType.DISCORD,
+  NodeType.MICROSOFT_TEAMS,
+]);
+
+export const CLOUD_WRITE_NODE_TYPES = new Set<string>([
+  NodeType.GOOGLE_SHEETS,
+  NodeType.AIRTABLE,
+  NodeType.GMAIL,
+  NodeType.EMAIL_SEND,
+  NodeType.SEND_EMAIL,
+]);
+
+/** Official n8n node namespace prefixes — everything else is a community node */
+export const OFFICIAL_NODE_PREFIXES = [
+  "n8n-nodes-base.",
+  "@n8n/n8n-nodes-langchain.",
+  "n8n-nodes-langchain.",
+  "@n8n_io/",
+];
 
 export const TRIGGER_TYPE_SUFFIXES = ["trigger", "Trigger"];
 

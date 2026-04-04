@@ -26,7 +26,7 @@ export const defaultConfig: Config = {
   severityThreshold: "low",
   redactEvidence: false,       // off so tests can inspect actual matched values
   requestSizeLimit: "5mb",
-  anthropicApiKey: null,
+  geminiApiKey: null,
   n8nFetchTimeoutMs: 5000,
   corsOrigin: "*",
 };
@@ -98,6 +98,44 @@ export function scheduleNode(name = "Schedule"): N8nNode {
 
 export function errorTriggerNode(name = "Error Handler"): N8nNode {
   return makeNode(name, `${B}errorTrigger`, {});
+}
+
+export function respondToWebhookNode(
+  name: string,
+  params: Record<string, unknown> = {},
+  overrides: NodeOverrides = {}
+): N8nNode {
+  return makeNode(name, `${B}respondToWebhook`, params, overrides);
+}
+
+export function executeWorkflowNode(
+  name: string,
+  workflowId: string | { __rl: true; value: string; mode: string }
+): N8nNode {
+  return makeNode(name, `${B}executeWorkflow`, { workflowId });
+}
+
+export function slackNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}slack`, params);
+}
+
+export function googleSheetsNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}googleSheets`, params);
+}
+
+export function communityNode(
+  name: string,
+  namespace: string,
+  params: Record<string, unknown> = {},
+  overrides: NodeOverrides = {}
+): N8nNode {
+  return makeNode(name, namespace, params, overrides);
 }
 
 export function postgresNode(

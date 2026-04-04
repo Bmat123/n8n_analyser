@@ -146,3 +146,105 @@ describe("EXP-002 — expression interpolated into SQL query", () => {
     expectNoRule(run(expressionInjectionRules, wf), "EXP-002");
   });
 });
+
+// ─── EXP-003: $env.* environment variable access ──────────────────────────────
+
+describe("EXP-003 — $env.* host environment variable access", () => {
+  it("fires when a node parameter references $env.DATABASE_PASSWORD", () => {
+    const wf = workflow([
+      genericNode("Send", `${B}httpRequest`, {
+        url: "https://api.example.com",
+        body: "={{ $env.DATABASE_PASSWORD }}",
+      }),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-003");
+  });
+
+  it("fires when $env.* appears inside a code node string parameter", () => {
+    const wf = workflow([
+      codeNode("Build", `const key = $env.SECRET_KEY;\nreturn items;`),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-003");
+  });
+
+  it("fires when $env.* is embedded in a URL", () => {
+    const wf = workflow([
+      genericNode("Fetch", `${B}httpRequest`, {
+        url: "https://api.example.com?token={{ $env.API_TOKEN }}",
+      }),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-003");
+  });
+
+  // ── False positives ──────────────────────────────────────────────────────
+
+  it("does NOT fire on a safe node with no $env references", () => {
+    const wf = workflow([
+      genericNode("Fetch", `${B}httpRequest`, { url: "https://api.example.com" }),
+    ]);
+    expectNoRule(run(expressionInjectionRules, wf), "EXP-003");
+  });
+
+  it("does NOT fire on disabled nodes", () => {
+    const wf = workflow([
+      genericNode("Leaky", `${B}httpRequest`, { body: "={{ $env.SECRET }}" }, { disabled: true }),
+    ]);
+    expectNoRule(run(expressionInjectionRules, wf), "EXP-003");
+  });
+});
+
+// ─── EXP-004: Sandbox escape / prototype pollution patterns ──────────────────
+
+describe("EXP-004 — sandbox escape and prototype pollution", () => {
+  it("fires on __proto__ in a parameter", () => {
+    const wf = workflow([
+      genericNode("Dangerous", `${B}httpRequest`, {
+        body: '={{ $json.__proto__.isAdmin }}',
+      }),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-004");
+  });
+
+  it("fires on constructor.constructor access", () => {
+    const wf = workflow([
+      genericNode("Escape", `${B}set`, {
+        value: "={{ $json.constructor.constructor('return process')() }}",
+      }),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-004");
+  });
+
+  it("fires on constructor[\"constructor\"] bracket notation", () => {
+    const wf = workflow([
+      genericNode("Escape", `${B}set`, {
+        value: `={{ $json.constructor["constructor"]('return process')() }}`,
+      }),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-004");
+  });
+
+  it("fires on process.env inside an expression template", () => {
+    const wf = workflow([
+      genericNode("Leak", `${B}httpRequest`, {
+        body: "={{ process.env.SECRET }}",
+      }),
+    ]);
+    expectRule(run(expressionInjectionRules, wf), "EXP-004");
+  });
+
+  // ── False positives ──────────────────────────────────────────────────────
+
+  it("does NOT fire on a plain $json field access", () => {
+    const wf = workflow([
+      genericNode("Safe", `${B}httpRequest`, { body: "={{ $json.email }}" }),
+    ]);
+    expectNoRule(run(expressionInjectionRules, wf), "EXP-004");
+  });
+
+  it("does NOT fire on disabled nodes", () => {
+    const wf = workflow([
+      genericNode("Off", `${B}set`, { v: "={{ $json.__proto__ }}" }, { disabled: true }),
+    ]);
+    expectNoRule(run(expressionInjectionRules, wf), "EXP-004");
+  });
+});

@@ -168,4 +168,119 @@ const exp002: RuleRunner = {
   },
 };
 
-export const expressionInjectionRules: RuleRunner[] = [exp001, exp002];
+// ─── EXP-003 ──────────────────────────────────────────────────────────────────
+
+// Matches $env.VARIABLE_NAME anywhere in a parameter string
+const ENV_ACCESS_REGEX = /\$env\.[A-Za-z_][A-Za-z0-9_]*/g;
+
+const exp003: RuleRunner = {
+  definition: {
+    id: "EXP-003",
+    severity: "critical",
+    category: "expression_injection",
+    title: "Workflow reads host environment variable via $env.*",
+    description:
+      "An n8n expression uses $env.<VARIABLE> to read a host environment variable. If that variable contains a secret (API key, DB password, etc.) and the node output is sent to an HTTP endpoint, chat, email, or logged, the secret is exfiltrated.",
+    remediation:
+      "Never reference $env.* in workflow expressions. Store secrets in n8n's credential vault and reference them via $credentials.*. If the env var is non-sensitive, document why.",
+  },
+  run({ workflow }) {
+    const violations: Violation[] = [];
+
+    for (const node of workflow.nodes) {
+      if (node.disabled) continue;
+
+      const seen = new Set<string>();
+      for (const { path, value } of walkNodeParams(node)) {
+        ENV_ACCESS_REGEX.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = ENV_ACCESS_REGEX.exec(value)) !== null) {
+          const envRef = match[0];
+          if (seen.has(envRef)) continue;
+          seen.add(envRef);
+
+          violations.push({
+            ruleId: "EXP-003",
+            severity: "critical",
+            category: "expression_injection",
+            title: `Environment variable exposed via expression: ${envRef}`,
+            description: `Node "${node.name}" reads the host environment variable "${envRef}" in an expression. If this value reaches an HTTP response, log, or external service, it constitutes secret exfiltration.`,
+            node: { id: node.id, name: node.name, type: node.type, position: node.position },
+            field: path,
+            evidence: envRef,
+            remediation: exp003.definition.remediation,
+          });
+        }
+      }
+    }
+
+    return violations;
+  },
+};
+
+// ─── EXP-004 ──────────────────────────────────────────────────────────────────
+
+interface SandboxEscapePattern {
+  regex: RegExp;
+  label: string;
+}
+
+const SANDBOX_ESCAPE_PATTERNS: SandboxEscapePattern[] = [
+  {
+    regex: /__proto__/,
+    label: "__proto__ access (prototype pollution)",
+  },
+  {
+    // constructor["constructor"] or constructor.constructor
+    regex: /constructor\s*(?:\[\s*['"]constructor['"]\s*\]|\.constructor)/,
+    label: "constructor.constructor (Function constructor escape)",
+  },
+  {
+    // process.env inside an expression template — not in a code node (SC-003 covers that)
+    regex: /\{\{[^}]*process\.env[^}]*\}\}/,
+    label: "process.env inside expression template",
+  },
+];
+
+const exp004: RuleRunner = {
+  definition: {
+    id: "EXP-004",
+    severity: "high",
+    category: "expression_injection",
+    title: "Potential sandbox escape in n8n expression",
+    description:
+      "A node parameter contains an expression pattern associated with JavaScript sandbox escapes or prototype pollution (__proto__, constructor.constructor, or process.env in a template). In older or misconfigured n8n versions these can execute arbitrary code.",
+    remediation:
+      "Remove the expression and replace it with a safe alternative. If the pattern is intentional and your n8n version is confirmed patched, add a suppression comment and document the rationale.",
+  },
+  run({ workflow }) {
+    const violations: Violation[] = [];
+
+    for (const node of workflow.nodes) {
+      if (node.disabled) continue;
+
+      for (const { path, value } of walkNodeParams(node)) {
+        for (const { regex, label } of SANDBOX_ESCAPE_PATTERNS) {
+          if (regex.test(value)) {
+            violations.push({
+              ruleId: "EXP-004",
+              severity: "high",
+              category: "expression_injection",
+              title: `Sandbox escape pattern in "${node.name}": ${label}`,
+              description: `Node "${node.name}" contains the pattern "${label}" in field ${path}. This is a known JavaScript sandbox escape technique.`,
+              node: { id: node.id, name: node.name, type: node.type, position: node.position },
+              field: path,
+              evidence: value.slice(0, 120),
+              remediation: exp004.definition.remediation,
+            });
+            break; // one violation per field per node; first pattern wins
+          }
+        }
+      }
+    }
+
+    return violations;
+  },
+};
+
+export const expressionInjectionRules: RuleRunner[] = [exp001, exp002, exp003, exp004];

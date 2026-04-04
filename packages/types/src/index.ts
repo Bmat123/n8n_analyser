@@ -8,7 +8,10 @@ export type RuleCategory =
   | "data_policy"
   | "dangerous_nodes"
   | "expression_injection"
-  | "workflow_hygiene";
+  | "workflow_hygiene"
+  | "supply_chain"
+  | "data_flow"
+  | "loop_flow";
 
 // ─── n8n Workflow Shape ───────────────────────────────────────────────────────
 

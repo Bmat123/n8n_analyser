@@ -61,8 +61,11 @@ ALL_RULES
   ├── networkRules        → NET-001, NET-002, NET-003, NET-004
   ├── dataPolicyRules     → DP-001, DP-002, DP-003, DP-004, DP-005
   ├── dangerousNodesRules → DN-001, DN-002, DN-003, DN-004
-  ├── expressionInjRules  → EXP-001, EXP-002
-  └── hygieneRules        → HYG-001, HYG-002, HYG-003, HYG-004
+  ├── expressionInjRules  → EXP-001, EXP-002, EXP-003, EXP-004
+  ├── hygieneRules        → HYG-001, HYG-002, HYG-003, HYG-004
+  ├── supplyChainRules    → SC-001, SC-002, SC-003, SC-004
+  ├── dataFlowRules       → DF-001, DF-002, DF-003
+  └── loopFlowRules       → LF-001, LF-002
 ```
 
 ---
