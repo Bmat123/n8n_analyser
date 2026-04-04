@@ -1,0 +1,16 @@
+{
+  "name": "n8n-workflow-analyzer",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w api\" \"npm run dev -w ui\"",
+    "build": "npm run build -w types && npm run build -w api && npm run build -w ui",
+    "test": "npm run test -w api",
+    "lint": "npm run lint -w api && npm run lint -w ui"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

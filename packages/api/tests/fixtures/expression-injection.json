@@ -1,0 +1,43 @@
+{
+  "id": "wf-injection-001",
+  "name": "Data Processor",
+  "active": true,
+  "nodes": [
+    {
+      "id": "node-1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 200],
+      "parameters": { "path": "process", "authentication": "headerAuth" }
+    },
+    {
+      "id": "node-2",
+      "name": "Execute User Script",
+      "type": "n8n-nodes-base.code",
+      "position": [300, 200],
+      "parameters": {
+        "jsCode": "const userInput = $json.body.script;\neval(userInput);\nreturn items;"
+      }
+    },
+    {
+      "id": "node-3",
+      "name": "Save to DB",
+      "type": "n8n-nodes-base.postgres",
+      "position": [500, 200],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM users WHERE username = '{{ $json.body.username }}' AND active = true"
+      }
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          { "node": "Execute User Script", "type": "main", "index": 0 },
+          { "node": "Save to DB", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  }
+}
