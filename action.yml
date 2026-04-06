@@ -1,0 +1,147 @@
+name: "n8n Workflow Security Analyzer"
+description: "Scan n8n workflow JSON files for security vulnerabilities and misconfigurations. Uploads findings to GitHub Code Scanning."
+author: "n8n Workflow Security Analyzer"
+
+branding:
+  icon: "shield"
+  color: "red"
+
+inputs:
+  workflow-path:
+    description: "Path to a workflow JSON file or directory containing workflow files. Scans recursively."
+    required: false
+    default: "."
+
+  severity-threshold:
+    description: "Minimum severity to report: low | medium | high | critical"
+    required: false
+    default: "low"
+
+  disabled-rules:
+    description: "Comma-separated rule IDs to skip, e.g. HYG-002,DP-005"
+    required: false
+    default: ""
+
+  fail-on:
+    description: "Exit with a non-zero code (failing the workflow) when violations at or above this severity are found. Use 'none' to always pass."
+    required: false
+    default: "high"
+
+  sarif-output:
+    description: "Path to write the SARIF results file. Set to empty string to skip SARIF upload."
+    required: false
+    default: "n8n-security.sarif"
+
+  upload-sarif:
+    description: "Upload SARIF results to GitHub Code Scanning (requires Actions read permission on security-events)."
+    required: false
+    default: "true"
+
+outputs:
+  sarif-file:
+    description: "Path to the generated SARIF file."
+    value: ${{ steps.analyze.outputs.sarif-file }}
+
+  total-violations:
+    description: "Total number of violations found across all scanned workflows."
+    value: ${{ steps.analyze.outputs.total-violations }}
+
+  critical-count:
+    description: "Number of critical violations."
+    value: ${{ steps.analyze.outputs.critical-count }}
+
+  high-count:
+    description: "Number of high violations."
+    value: ${{ steps.analyze.outputs.high-count }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install analyzer
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        npm ci --ignore-scripts
+
+    - name: Build shared types
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        npm run build -w @n8n-analyzer/types
+
+    - name: Run security analysis
+      id: analyze
+      shell: bash
+      env:
+        SEVERITY_THRESHOLD: ${{ inputs.severity-threshold }}
+        DISABLED_RULES: ${{ inputs.disabled-rules }}
+        REDACT_EVIDENCE: "true"
+      run: |
+        cd ${{ github.workspace }}
+
+        SARIF_FILE="${{ inputs.sarif-output }}"
+
+        # Run the analyzer — output SARIF to the specified file
+        if [ -n "$SARIF_FILE" ]; then
+          node ${{ github.action_path }}/packages/api/src/cli.ts \
+            --format sarif \
+            --output "$SARIF_FILE" \
+            "${{ inputs.workflow-path }}" \
+            || true
+
+          echo "sarif-file=$SARIF_FILE" >> $GITHUB_OUTPUT
+
+          # Parse summary counts from the SARIF file for output variables
+          CRITICAL=$(jq '[.runs[].results[] | select(.properties.severity == "critical")] | length' "$SARIF_FILE" 2>/dev/null || echo 0)
+          HIGH=$(jq '[.runs[].results[] | select(.properties.severity == "high")] | length' "$SARIF_FILE" 2>/dev/null || echo 0)
+          TOTAL=$(jq '[.runs[].results[]] | length' "$SARIF_FILE" 2>/dev/null || echo 0)
+
+          echo "total-violations=$TOTAL" >> $GITHUB_OUTPUT
+          echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high-count=$HIGH" >> $GITHUB_OUTPUT
+
+          echo "### n8n Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+          echo "| High     | $HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total**| **$TOTAL** |" >> $GITHUB_STEP_SUMMARY
+
+          # Determine if we should fail based on fail-on input
+          FAIL_ON="${{ inputs.fail-on }}"
+          SHOULD_FAIL=false
+
+          case "$FAIL_ON" in
+            critical)
+              [ "$CRITICAL" -gt 0 ] && SHOULD_FAIL=true ;;
+            high)
+              [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ] && SHOULD_FAIL=true ;;
+            medium)
+              [ "$TOTAL" -gt 0 ] && SHOULD_FAIL=true ;;
+            none)
+              SHOULD_FAIL=false ;;
+          esac
+
+          if [ "$SHOULD_FAIL" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> ⚠️ Security violations found at or above the '$FAIL_ON' threshold." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+        else
+          # No SARIF — just run in text mode and let CLI handle exit code
+          node ${{ github.action_path }}/packages/api/src/cli.ts \
+            "${{ inputs.workflow-path }}"
+        fi
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: inputs.upload-sarif == 'true' && inputs.sarif-output != '' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-output }}
+        category: "n8n-security"

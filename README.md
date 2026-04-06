@@ -31,8 +31,11 @@ Analyze a workflow file without the server:
 ```bash
 cd packages/api
 
-# From a file
+# Single file
 npx tsx src/cli.ts path/to/workflow.json
+
+# Entire directory (recursive)
+npx tsx src/cli.ts workflows/
 
 # From stdin
 cat my-workflow.json | npx tsx src/cli.ts
@@ -42,9 +45,63 @@ SEVERITY_THRESHOLD=high npx tsx src/cli.ts workflow.json
 
 # Disable specific rules
 DISABLED_RULES=HYG-002,DP-005 npx tsx src/cli.ts workflow.json
+
+# SARIF output (for GitHub Code Scanning / CI)
+npx tsx src/cli.ts --format sarif --output results.sarif workflows/
 ```
 
 The CLI exits `0` when there are no critical or high violations and `1` when there are — suitable for CI pipelines.
+
+---
+
+## GitHub Integration
+
+Export your n8n workflows as JSON, commit them to your repo, and add the Action to automatically scan them on every push and pull request. Findings appear inline in the **Security → Code scanning** tab.
+
+**1. Add the workflow file** at `.github/workflows/n8n-security.yml`:
+
+```yaml
+name: n8n Security Scan
+on:
+  push:
+    branches: [main]
+    paths: ["**.json"]
+  pull_request:
+    paths: ["**.json"]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Bmat123/n8n_analyser@main
+        with:
+          workflow-path: "."      # directory containing your workflow JSON files
+          severity-threshold: low
+          fail-on: high           # fail CI on critical or high violations
+          upload-sarif: "true"    # post findings to GitHub Code Scanning
+```
+
+**2. Export workflows** from n8n: `Workflow → ⋮ → Export → Download`, commit the JSON files to your repo.
+
+**3. Results** appear in three places:
+- **Actions tab** — step summary with violation counts per run
+- **Security → Code scanning** — full findings with rule descriptions and remediation guidance
+- **Pull request checks** — inline annotations on changed workflow files
+
+A pre-built example is at [`.github/workflows/n8n-security.yml`](.github/workflows/n8n-security.yml).
+
+| Action input | Default | Description |
+|---|---|---|
+| `workflow-path` | `.` | File or directory to scan |
+| `severity-threshold` | `low` | Minimum severity to include |
+| `fail-on` | `high` | Fail CI at this severity or above (`critical`/`high`/`medium`/`none`) |
+| `disabled-rules` | `""` | Comma-separated rule IDs to skip |
+| `upload-sarif` | `true` | Upload to GitHub Code Scanning |
 
 Sample output:
 
