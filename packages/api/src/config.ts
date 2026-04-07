@@ -9,6 +9,8 @@ export interface Config {
   port: number;
   /** Approved database hostnames; suppresses DP-003 for these hosts */
   approvedDbHosts: Set<string>;
+  /** Approved external egress hostnames; when non-empty, DP-006 fires for any HTTP Request host not in this list */
+  approvedEgressHosts: Set<string>;
   /** Rule IDs to skip globally */
   disabledRules: Set<string>;
   /** Minimum severity included in violation output */
@@ -78,6 +80,10 @@ function buildConfig(): Config {
     process.env.APPROVED_DB_HOSTS
   );
 
+  const approvedEgressHosts = parseCommaSeparatedSet(
+    process.env.APPROVED_EGRESS_HOSTS
+  );
+
   // Disabled rules are stored as uppercase for case-insensitive matching
   const disabledRules = new Set<string>(
     [...parseCommaSeparatedSet(process.env.DISABLED_RULES)].map((s) =>
@@ -88,6 +94,7 @@ function buildConfig(): Config {
   return {
     port: parsePort(process.env.PORT),
     approvedDbHosts,
+    approvedEgressHosts,
     disabledRules,
     severityThreshold: parseSeverity(process.env.SEVERITY_THRESHOLD),
     redactEvidence: parseBoolean(process.env.REDACT_EVIDENCE, true),

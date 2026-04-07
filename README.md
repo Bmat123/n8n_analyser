@@ -2,7 +2,7 @@
 
 Static security and data-policy analysis for n8n workflows. Paste a workflow JSON and get a structured report of every vulnerability, misconfiguration, and policy violation — without ever executing the workflow.
 
-→ **[Rule Catalogue](RULES.md)** — all 20 rules with descriptions and remediation guidance  
+→ **[Rule Catalogue](RULES.md)** — all 33 rules with descriptions and remediation guidance  
 → **[Development Guide](DEVELOPMENT.md)** — how the engine works, detection techniques, AI layer, test suite
 
 ---
@@ -13,7 +13,7 @@ Static security and data-policy analysis for n8n workflows. Paste a workflow JSO
 # 1. Install dependencies
 npm install
 
-# 2. Copy env template and add your Gemini key (optional — needed for AI features)
+# 2. Copy env template and fill in what you need (Gemini key is optional)
 cp .env.example .env
 
 # 3. Start everything
@@ -45,6 +45,9 @@ SEVERITY_THRESHOLD=high npx tsx src/cli.ts workflow.json
 
 # Disable specific rules
 DISABLED_RULES=HYG-002,DP-005 npx tsx src/cli.ts workflow.json
+
+# Enforce an egress allowlist (DP-006)
+APPROVED_EGRESS_HOSTS=api.stripe.com,hooks.slack.com npx tsx src/cli.ts workflow.json
 
 # SARIF output (for GitHub Code Scanning / CI)
 npx tsx src/cli.ts --format sarif --output results.sarif workflows/
@@ -119,6 +122,14 @@ Summary: 4 violation(s) — 1 critical · 2 high · 1 medium · 18 passed
   Field: parameters.headerParameters.values[0].value
   Evidence: sk_l****REDACTED****
   → Move this credential to n8n's credential vault.
+
+─── DATA POLICY ───
+
+  ◆ MEDIUM    [DP-006] HTTP Request contacts unapproved host: "api.unknown-tracker.io"
+  Node: "Send Analytics" (n8n-nodes-base.httpRequest)
+  Field: parameters.url
+  Evidence: api.unknown-tracker.io
+  → Add this host to APPROVED_EGRESS_HOSTS if authorised, or remove the node.
 
 ─── EXPRESSION INJECTION ───
 
@@ -203,11 +214,41 @@ Copy `.env.example` to `.env` and set the values you need:
 | `CORS_ORIGIN` | `*` | CORS allowed origin |
 | `REQUEST_SIZE_LIMIT` | `5mb` | Max request body size |
 | `APPROVED_DB_HOSTS` | `""` | Comma-separated DB hostnames that suppress DP-003 |
+| `APPROVED_EGRESS_HOSTS` | `""` | Comma-separated allowed outbound HTTP hostnames. When set, enables DP-006 and flags any HTTP Request node calling a host outside this list |
 | `DISABLED_RULES` | `""` | Comma-separated rule IDs to skip globally |
 | `SEVERITY_THRESHOLD` | `low` | Minimum severity to include in output |
 | `REDACT_EVIDENCE` | `true` | Mask matched secrets in the `evidence` field |
 | `GEMINI_API_KEY` | `""` | Enables AI analysis and fix suggestions |
 | `N8N_FETCH_TIMEOUT_MS` | `5000` | Timeout for Mode B n8n fetches |
+
+### Egress allowlist (DP-006)
+
+Setting `APPROVED_EGRESS_HOSTS` turns on an outbound HTTP allowlist. Every HTTP Request node whose destination hostname is not on the list triggers a medium violation. This is the primary control for catching data leaking to unexpected third parties.
+
+```bash
+# .env
+APPROVED_EGRESS_HOSTS=api.stripe.com,api.sendgrid.com,hooks.slack.com,api.github.com
+```
+
+Leave it empty (the default) to run without egress enforcement — useful when you are still inventorying your workflows.
+
+---
+
+## Rule categories
+
+| Category | Rules | Focus |
+|---|---|---|
+| Credentials | SEC-001 – SEC-003 | Hardcoded secrets, keys in URLs, credentials in Set nodes |
+| Network | NET-001 – NET-004 | Unencrypted HTTP, disabled TLS, SSRF, dynamic URLs |
+| Data Policy | DP-001 – DP-006 | Webhook auth, PII in requests, unapproved DB/egress hosts, console.log, missing error handlers |
+| Dangerous Nodes | DN-001 – DN-003 | Shell execution, SSH, file read/write |
+| Expression Injection | EXP-001 – EXP-004 | Unsanitised webhook input, `$env.*` leakage, sandbox escapes |
+| Hygiene | HYG-001 – HYG-004 | No trigger, inactive workflows, missing sticky notes, all triggers disabled |
+| Supply Chain | SC-001 – SC-004 | n8n self-API pivot, community nodes, dangerous code patterns, raw content hosts |
+| Data Flow | DF-001 – DF-003 | Webhook echo, DB→cloud exfiltration, DB→chat leakage |
+| Loop & Flow | LF-001 – LF-002 | Sub-minute cron, self-recursive workflow |
+
+Full descriptions and remediation guidance for all 33 rules: **[RULES.md](RULES.md)**
 
 ---
 
@@ -225,6 +266,7 @@ n8n-workflow-analyzer/
 │   │   │   ├── cli.ts                  # CLI runner
 │   │   │   ├── config.ts               # Env → typed Config
 │   │   │   ├── fetcher.ts              # Mode B: fetch from live n8n
+│   │   │   ├── sarif.ts                # SARIF 2.1.0 serializer
 │   │   │   ├── routes/
 │   │   │   │   ├── health.ts
 │   │   │   │   ├── rules.ts
@@ -234,7 +276,7 @@ n8n-workflow-analyzer/
 │   │   │       ├── index.ts            # Orchestrator
 │   │   │       ├── ai.ts               # Gemini: analysis + fix suggestions
 │   │   │       ├── utils.ts            # Walker, URL helpers, graph tools
-│   │   │       └── rules/              # SEC, NET, DP, DN, EXP, HYG
+│   │   │       └── rules/              # SEC, NET, DP, DN, EXP, HYG, SC, DF, LF
 │   │   └── tests/
 │   │       ├── helpers.ts
 │   │       ├── orchestrator.test.ts
@@ -250,6 +292,8 @@ n8n-workflow-analyzer/
 │               ├── SubmitPage.tsx      # Submit + inline report + fix suggestions
 │               └── RulesPage.tsx       # Rule catalogue browser
 │
+├── action.yml                          # GitHub composite Action
+├── .github/workflows/n8n-security.yml  # Example CI workflow
 ├── .env.example                        # Template — safe to commit
 ├── .env                                # Your secrets — gitignored
 ├── .gitignore

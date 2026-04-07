@@ -7,6 +7,9 @@ import {
   CODE_NODE_TYPES,
   isExternalDataNode,
   getStringParam,
+  extractHostname,
+  isPrivateHost,
+  isFullyDynamicExpression,
 } from "../utils.js";
 
 // ─── DP-001 ───────────────────────────────────────────────────────────────────
@@ -254,4 +257,61 @@ const dp005: RuleRunner = {
   },
 };
 
-export const dataPolicyRules: RuleRunner[] = [dp001, dp002, dp003, dp004, dp005];
+// ─── DP-006 ───────────────────────────────────────────────────────────────────
+
+const dp006: RuleRunner = {
+  definition: {
+    id: "DP-006",
+    severity: "medium",
+    category: "data_policy",
+    title: "HTTP Request contacts host not in the approved egress list",
+    description:
+      "An HTTP Request node sends data to a hostname that is not in the APPROVED_EGRESS_HOSTS allowlist. When the list is configured, every outbound HTTP destination must be explicitly approved to prevent unintended data exfiltration to third parties.",
+    remediation:
+      "Add the hostname to the APPROVED_EGRESS_HOSTS environment variable if the destination is authorised. If the endpoint is genuinely required, ensure it is covered by a data processing agreement. Leave APPROVED_EGRESS_HOSTS empty to disable this rule.",
+  },
+  run({ workflow, config }) {
+    // Rule is opt-in — skip entirely if no allowlist is configured
+    if (config.approvedEgressHosts.size === 0) return [];
+
+    const violations: Violation[] = [];
+    const approved = new Set([...config.approvedEgressHosts].map((h) => h.toLowerCase()));
+
+    for (const node of workflow.nodes) {
+      if (node.disabled || node.type !== NodeType.HTTP_REQUEST) continue;
+
+      // Track hosts already reported for this node to avoid duplicate violations
+      const reportedHosts = new Set<string>();
+
+      for (const { path, value } of walkNodeParams(node)) {
+        // Skip purely dynamic expressions — NET-004 covers those
+        if (isFullyDynamicExpression(value)) continue;
+
+        const host = extractHostname(value);
+        if (!host) continue;
+
+        // Private/internal hosts are covered by NET-003
+        if (isPrivateHost(host)) continue;
+
+        if (!approved.has(host) && !reportedHosts.has(host)) {
+          reportedHosts.add(host);
+          violations.push({
+            ruleId: "DP-006",
+            severity: "medium",
+            category: "data_policy",
+            title: `HTTP Request contacts unapproved host: "${host}"`,
+            description: `Node "${node.name}" sends data to "${host}" which is not in the APPROVED_EGRESS_HOSTS allowlist.`,
+            node: { id: node.id, name: node.name, type: node.type, position: node.position },
+            field: path,
+            evidence: host,
+            remediation: dp006.definition.remediation,
+          });
+        }
+      }
+    }
+
+    return violations;
+  },
+};
+
+export const dataPolicyRules: RuleRunner[] = [dp001, dp002, dp003, dp004, dp005, dp006];

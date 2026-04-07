@@ -22,6 +22,7 @@ import type { RuleRunner } from "../src/analyzer/types.js";
 export const defaultConfig: Config = {
   port: 3000,
   approvedDbHosts: new Set(),
+  approvedEgressHosts: new Set(),
   disabledRules: new Set(),
   severityThreshold: "low",
   redactEvidence: false,       // off so tests can inspect actual matched values
