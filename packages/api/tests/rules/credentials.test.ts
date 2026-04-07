@@ -101,6 +101,43 @@ describe("SEC-001 — hardcoded secret", () => {
     ]);
     expectNoRule(run(credentialsRules, wf), "SEC-001");
   });
+
+  it("does NOT fire on a Google Sheets spreadsheet ID in sheetId field", () => {
+    // sheetId is a resource identifier, not a credential — even though it is a
+    // long alphanumeric string that would otherwise match the AWS secret pattern.
+    const wf = workflow([{
+      id: "node-gs",
+      name: "Google Sheets",
+      type: "n8n-nodes-base.googleSheets",
+      position: [0, 0],
+      parameters: {
+        sheetId: "1GVyV1yYwWZu510NTzVgi2RyesrsnuP3RxXmWbX1O7DQ",
+        operation: "append",
+        authentication: "oAuth2",
+        options: {},
+      },
+      credentials: { googleSheetsOAuth2Api: { id: "cred1", name: "google_sheets_oauth" } },
+    }]);
+    expectNoRule(run(credentialsRules, wf), "SEC-001");
+  });
+
+  it("does NOT fire on an Airtable base ID in baseId field", () => {
+    const wf = workflow([{
+      id: "node-at",
+      name: "Airtable",
+      type: "n8n-nodes-base.airtable",
+      position: [0, 0],
+      parameters: { baseId: "appXXXXXXXXXXXXXX", tableId: "tblYYYYYYYYYYYYYY", operation: "list" },
+    }]);
+    expectNoRule(run(credentialsRules, wf), "SEC-001");
+  });
+
+  it("still fires on an AWS secret key in a field named secretAccessKey", () => {
+    const wf = workflow([
+      httpNode("AWS Call", { secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" }),
+    ]);
+    expectRule(run(credentialsRules, wf), "SEC-001");
+  });
 });
 
 // ─── SEC-002: Token in URL query string ───────────────────────────────────────

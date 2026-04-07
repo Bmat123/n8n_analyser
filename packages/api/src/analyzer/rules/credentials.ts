@@ -22,6 +22,9 @@ const SECRET_PATTERNS: SecretPattern[] = [
   { name: "GitHub PAT (fine-grained)", regex: /github_pat_[a-zA-Z0-9_]{82}/ },
   { name: "Slack token", regex: /xox[baprs]-[0-9a-zA-Z-]{10,}/ },
   { name: "AWS access key", regex: /AKIA[0-9A-Z]{16}/ },
+  // AWS secret keys always appear in fields named after credentials — the raw
+  // pattern is too broad (matches any 40-char alphanumeric string) so it is
+  // only applied when the field name looks like a credential (see guard below).
   { name: "AWS secret key", regex: /[a-zA-Z0-9/+]{40}/ },
   { name: "Bearer token", regex: /Bearer\s+[a-zA-Z0-9\-._~+/]{20,}/i },
   {
@@ -52,7 +55,39 @@ const CREDENTIAL_FIELD_NAMES = new Set([
   "client_secret",
   "authtoken",
   "auth_token",
+  "secretaccesskey",
+  "secret_access_key",
+  "awssecret",
+  "aws_secret",
 ]);
+
+/**
+ * Parameter field names that hold resource/entity identifiers, not credentials.
+ * Values in these fields should never be flagged as secrets regardless of entropy
+ * or pattern matches — e.g. a Google Sheets spreadsheet ID looks like a 44-char
+ * alphanumeric string and would otherwise match the broad AWS secret key pattern.
+ */
+const RESOURCE_ID_FIELD_NAMES = new Set([
+  // Generic
+  "id", "nodeid", "executionid", "instanceid",
+  // Google Workspace
+  "sheetid", "spreadsheetid", "documentid", "fileid", "folderid",
+  "calendarid", "formid", "driveid", "presentationid",
+  // Airtable
+  "baseid", "tableid", "recordid",
+  // Communication
+  "channelid", "workspaceid", "teamid", "userid", "groupid",
+  "organizationid", "orgid", "accountid",
+  // Project tools
+  "projectid", "boardid", "listid", "cardid", "issueid",
+  // n8n
+  "workflowid", "webhookid",
+]);
+
+function fieldNameIsResourceId(path: string): boolean {
+  const last = path.split(".").pop()?.split("[")[0]?.toLowerCase() ?? "";
+  return RESOURCE_ID_FIELD_NAMES.has(last);
+}
 
 function isHighEntropy(s: string): boolean {
   if (s.length < 20) return false;
@@ -88,7 +123,17 @@ const sec001: RuleRunner = {
         // Skip pure n8n expression references to credential vault
         if (value.includes("$credentials.")) continue;
 
+        // Skip fields that hold resource/entity identifiers — their values are
+        // structurally similar to secrets (long alphanumeric strings) but are
+        // not sensitive. e.g. Google Sheets spreadsheet IDs, Airtable base IDs.
+        if (fieldNameIsResourceId(path)) continue;
+
         for (const pattern of SECRET_PATTERNS) {
+          // The generic AWS secret key pattern is intentionally broad (any 40-char
+          // alphanumeric string). Only apply it when the field name itself suggests
+          // it holds a credential, to avoid matching spreadsheet IDs etc.
+          if (pattern.name === "AWS secret key" && !fieldNameLooksCredential(path)) continue;
+
           const match = value.match(pattern.regex);
           if (match) {
             violations.push({

@@ -45,9 +45,21 @@ const CATEGORY_LABELS: Record<string, string> = {
   dangerous_nodes: "Dangerous Nodes",
   expression_injection: "Expression Injection",
   workflow_hygiene: "Workflow Hygiene",
+  supply_chain: "Supply Chain",
+  data_flow: "Data Flow",
+  loop_flow: "Loop & Flow Control",
 };
 
 const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
+
+const SEVERITY_ORDER: Record<Severity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+const MAX_VISIBLE = 10;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -267,9 +279,9 @@ function AiSection({ title, items, numbered = false }: { title: string; items: s
 function Report({ report, workflow, onReset }: { report: AnalysisReport; workflow: N8nWorkflow; onReset: () => void }) {
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [showAll, setShowAll] = useState(false);
 
   const { summary, violations, passedRules, skippedRules, metadata, aiAnalysis, warnings } = report;
-
 
   const chartData = SEVERITIES.filter((s) => summary[s] > 0).map((s) => ({
     name: SEVERITY_CONFIG[s].label,
@@ -279,11 +291,23 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
 
   const categories = [...new Set(violations.map((v) => v.category))].sort();
 
-  const filtered = violations.filter(
+  // Sort by severity first, then stable within each severity level
+  const sorted = [...violations].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
+  );
+
+  const filtered = sorted.filter(
     (v) =>
       (severityFilter === "all" || v.severity === severityFilter) &&
       (categoryFilter === "all" || v.category === categoryFilter)
   );
+
+  // When more than MAX_VISIBLE, drop lowest-severity items unless showAll
+  const visible = showAll || filtered.length <= MAX_VISIBLE
+    ? filtered
+    : filtered.slice(0, MAX_VISIBLE);
+
+  const hiddenCount = filtered.length - visible.length;
 
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
@@ -412,7 +436,7 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
 
             <div className="flex gap-1 ml-auto">
               <button
-                onClick={() => setSeverityFilter("all")}
+                onClick={() => { setSeverityFilter("all"); setShowAll(false); }}
                 className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                   severityFilter === "all" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"
                 }`}
@@ -422,7 +446,7 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
               {SEVERITIES.filter((s) => summary[s] > 0).map((s) => (
                 <button
                   key={s}
-                  onClick={() => setSeverityFilter((f) => (f === s ? "all" : s))}
+                  onClick={() => { setSeverityFilter((f) => (f === s ? "all" : s)); setShowAll(false); }}
                   className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                     severityFilter === s ? "bg-gray-600 text-white" : "text-gray-500 hover:text-gray-300"
                   }`}
@@ -436,7 +460,7 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
             {categories.length > 1 && (
               <select
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                onChange={(e) => { setCategoryFilter(e.target.value); setShowAll(false); }}
                 className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700 focus:outline-none"
               >
                 <option value="all">All categories</option>
@@ -451,11 +475,29 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
             {filtered.length === 0 ? (
               <p className="text-gray-500 text-sm py-4 text-center">No violations match the current filters.</p>
             ) : (
-              filtered.map((v, i) => (
+              visible.map((v, i) => (
                 <ViolationRow key={`${v.ruleId}-${i}`} violation={v} index={i} workflow={workflow} />
               ))
             )}
           </div>
+
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="mt-3 w-full py-2 rounded-lg border border-gray-700 text-gray-400 text-sm hover:border-gray-500 hover:text-gray-200 transition-colors"
+            >
+              Show all — {hiddenCount} more {hiddenCount === 1 ? "violation" : "violations"} hidden
+              <span className="ml-2 text-gray-600 text-xs">(lower severity)</span>
+            </button>
+          )}
+          {showAll && filtered.length > MAX_VISIBLE && (
+            <button
+              onClick={() => setShowAll(false)}
+              className="mt-3 w-full py-2 rounded-lg border border-gray-700 text-gray-500 text-sm hover:border-gray-600 hover:text-gray-300 transition-colors"
+            >
+              Show fewer
+            </button>
+          )}
         </div>
       )}
 

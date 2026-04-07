@@ -20,6 +20,9 @@ const CATEGORY_LABELS: Record<RuleCategory, string> = {
   dangerous_nodes: "Dangerous Nodes",
   expression_injection: "Expression Injection",
   workflow_hygiene: "Workflow Hygiene",
+  supply_chain: "Supply Chain",
+  data_flow: "Data Flow",
+  loop_flow: "Loop & Flow Control",
 };
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as RuleCategory[];

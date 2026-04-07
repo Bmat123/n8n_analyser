@@ -148,7 +148,7 @@ export interface N8nApiReference {
 /** POST /analyze — Mode A */
 export interface AnalyzeWorkflowRequest {
   workflow: N8nWorkflow;
-  /** If true and ANTHROPIC_API_KEY is set, attaches aiAnalysis to the report */
+  /** If true and GEMINI_API_KEY is set, attaches aiAnalysis to the report */
   ai?: boolean;
 }
 
