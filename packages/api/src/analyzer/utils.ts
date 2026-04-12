@@ -149,6 +149,12 @@ export const NodeType = {
   MICROSOFT_TEAMS: `${BASE}microsoftTeams`,
   SCHEDULE_TRIGGER: `${BASE}scheduleTrigger`,
   CRON: `${BASE}cron`,
+  SPLIT_IN_BATCHES: `${BASE}splitInBatches`,
+  LOOP_OVER_ITEMS: `${BASE}loopOverItems`,
+  STICKY_NOTE: `${BASE}stickyNote`,
+  WAIT: `${BASE}wait`,
+  MERGE: `${BASE}merge`,
+  MONGODB_WRITE: `${BASE}mongoDbV2`,
 } as const;
 
 export const CODE_NODE_TYPES = new Set<string>([
@@ -320,4 +326,170 @@ export function buildNodeMap(workflow: N8nWorkflow): Map<string, N8nNode> {
   const m = new Map<string, N8nNode>();
   for (const n of workflow.nodes) m.set(n.name, n);
   return m;
+}
+
+// ─── Extended graph utilities ─────────────────────────────────────────────────
+
+/** Loop node types that split into body (output 0) and done (output 1) */
+export const LOOP_NODE_TYPES = new Set<string>([
+  NodeType.SPLIT_IN_BATCHES,
+  NodeType.LOOP_OVER_ITEMS,
+]);
+
+/**
+ * Reverse adjacency list: target → Set<sources that point to it>.
+ * Enables upstream traversal.
+ */
+export function buildReverseAdjacencyList(
+  connections: N8nConnections
+): Map<string, Set<string>> {
+  const graph = new Map<string, Set<string>>();
+  for (const [sourceName, outputs] of Object.entries(connections)) {
+    for (const outputGroup of outputs.main ?? []) {
+      for (const conn of outputGroup) {
+        if (!graph.has(conn.node)) graph.set(conn.node, new Set());
+        graph.get(conn.node)!.add(sourceName);
+        if (!graph.has(sourceName)) graph.set(sourceName, new Set());
+      }
+    }
+  }
+  return graph;
+}
+
+/**
+ * Returns all node names reachable upstream from `nodeName` within `maxHops`
+ * (default: unlimited). Uses the reverse adjacency list.
+ */
+export function getUpstreamNodes(
+  nodeName: string,
+  reverseGraph: Map<string, Set<string>>,
+  maxHops = Infinity
+): Set<string> {
+  const result = new Set<string>();
+  const queue: Array<{ name: string; depth: number }> = [{ name: nodeName, depth: 0 }];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const { name, depth } = queue.shift()!;
+    if (visited.has(name)) continue;
+    visited.add(name);
+    if (name !== nodeName) result.add(name);
+    if (depth < maxHops) {
+      for (const parent of reverseGraph.get(name) ?? []) {
+        if (!visited.has(parent)) queue.push({ name: parent, depth: depth + 1 });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns all node names reachable downstream from `nodeName` within `maxHops`
+ * (default: unlimited). Uses the forward adjacency list.
+ */
+export function getDownstreamNodes(
+  nodeName: string,
+  graph: Map<string, Set<string>>,
+  maxHops = Infinity
+): Set<string> {
+  const result = new Set<string>();
+  const queue: Array<{ name: string; depth: number }> = [{ name: nodeName, depth: 0 }];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const { name, depth } = queue.shift()!;
+    if (visited.has(name)) continue;
+    visited.add(name);
+    if (name !== nodeName) result.add(name);
+    if (depth < maxHops) {
+      for (const child of graph.get(name) ?? []) {
+        if (!visited.has(child)) queue.push({ name: child, depth: depth + 1 });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns nodes that have no outgoing connections (terminal/leaf nodes).
+ */
+export function getTerminalNodes(workflow: N8nWorkflow): N8nNode[] {
+  const graph = buildAdjacencyList(workflow.connections);
+  return workflow.nodes.filter((n) => {
+    const out = graph.get(n.name);
+    return !out || out.size === 0;
+  });
+}
+
+/**
+ * Port-aware connection entry: which output port index the edge leaves from.
+ */
+export interface PortedConnection {
+  node: string;
+  outputIndex: number;
+}
+
+/**
+ * Builds a port-aware adjacency list, preserving output port index.
+ * Needed for loop body detection (port 0 = loop body, port 1 = loop done).
+ */
+export function buildPortedAdjacencyList(
+  connections: N8nConnections
+): Map<string, PortedConnection[]> {
+  const graph = new Map<string, PortedConnection[]>();
+  for (const [sourceName, outputs] of Object.entries(connections)) {
+    if (!graph.has(sourceName)) graph.set(sourceName, []);
+    const outGroups = outputs.main ?? [];
+    outGroups.forEach((group, portIndex) => {
+      for (const conn of group) {
+        graph.get(sourceName)!.push({ node: conn.node, outputIndex: portIndex });
+      }
+    });
+  }
+  return graph;
+}
+
+/**
+ * For each loop node (SplitInBatches / LoopOverItems), returns the set of
+ * node names that are part of the loop body (reachable via output port 0,
+ * excluding the loop node itself and nodes only reachable via port 1).
+ *
+ * Returns: Map<loopNodeName → Set<bodyNodeNames>>
+ */
+export function getLoopBodyNodes(
+  workflow: N8nWorkflow,
+  portedGraph: Map<string, PortedConnection[]>
+): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  const nodeMap = buildNodeMap(workflow);
+
+  for (const node of workflow.nodes) {
+    if (!LOOP_NODE_TYPES.has(node.type)) continue;
+
+    const bodyNodes = new Set<string>();
+    // Walk only from output port 0 (the "continue loop" port)
+    const queue: string[] = [];
+    for (const conn of portedGraph.get(node.name) ?? []) {
+      if (conn.outputIndex === 0) queue.push(conn.node);
+    }
+
+    const visited = new Set<string>([node.name]);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+
+      // Stop if this node is another loop node (nested loops — treat as boundary)
+      const currentNode = nodeMap.get(current);
+      if (!currentNode || LOOP_NODE_TYPES.has(currentNode.type)) continue;
+
+      bodyNodes.add(current);
+      // Continue from all outgoing ports of body nodes
+      for (const conn of portedGraph.get(current) ?? []) {
+        if (!visited.has(conn.node)) queue.push(conn.node);
+      }
+    }
+
+    result.set(node.name, bodyNodes);
+  }
+
+  return result;
 }

@@ -48,6 +48,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   supply_chain: "Supply Chain",
   data_flow: "Data Flow",
   loop_flow: "Loop & Flow Control",
+  reliability: "Reliability",
+  performance: "Performance",
+  maintainability: "Maintainability",
+  data_quality: "Data Quality",
+  observability: "Observability",
 };
 
 const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];

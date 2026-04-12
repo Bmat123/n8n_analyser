@@ -11,7 +11,12 @@ export type RuleCategory =
   | "workflow_hygiene"
   | "supply_chain"
   | "data_flow"
-  | "loop_flow";
+  | "loop_flow"
+  | "reliability"
+  | "performance"
+  | "maintainability"
+  | "data_quality"
+  | "observability";
 
 // ─── n8n Workflow Shape ───────────────────────────────────────────────────────
 
@@ -87,6 +92,12 @@ export interface Violation {
   /** Partially redacted value of the offending field */
   evidence?: string;
   remediation: string;
+  /**
+   * Detection confidence. Absent means "certain".
+   * - "probable"  — heuristic detection, low false-positive rate
+   * - "advisory"  — high-uncertainty heuristic; treat as a hint, not a finding
+   */
+  confidence?: "certain" | "probable" | "advisory";
 }
 
 // ─── Analysis Report ──────────────────────────────────────────────────────────

@@ -7,6 +7,11 @@ import { hygieneRules } from "./hygiene.js";
 import { supplyChainRules } from "./supply-chain.js";
 import { dataFlowRules } from "./data-flow.js";
 import { loopFlowRules } from "./loop-flow.js";
+import { reliabilityRules } from "./reliability.js";
+import { observabilityRules } from "./observability.js";
+import { maintainabilityRules } from "./maintainability.js";
+import { dataQualityRules } from "./data-quality.js";
+import { performanceRules } from "./performance.js";
 import type { RuleRunner } from "../types.js";
 
 export const ALL_RULES: RuleRunner[] = [
@@ -19,6 +24,11 @@ export const ALL_RULES: RuleRunner[] = [
   ...supplyChainRules,
   ...dataFlowRules,
   ...loopFlowRules,
+  ...reliabilityRules,
+  ...observabilityRules,
+  ...maintainabilityRules,
+  ...dataQualityRules,
+  ...performanceRules,
 ];
 
 export {
@@ -31,4 +41,9 @@ export {
   supplyChainRules,
   dataFlowRules,
   loopFlowRules,
+  reliabilityRules,
+  observabilityRules,
+  maintainabilityRules,
+  dataQualityRules,
+  performanceRules,
 };

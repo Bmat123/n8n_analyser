@@ -30,6 +30,11 @@ export const defaultConfig: Config = {
   geminiApiKey: null,
   n8nFetchTimeoutMs: 5000,
   corsOrigin: "*",
+  maxNodesDecompWarning: 20,
+  maxNodesHardLimit: 40,
+  loopRateLimitExemptions: new Set(),
+  includeAdvisory: true,
+  currencyFieldNames: new Set(["price", "amount", "total", "cost", "fee", "rate", "tax", "discount", "subtotal"]),
 };
 
 // ─── Node builders ────────────────────────────────────────────────────────────
@@ -144,6 +149,52 @@ export function postgresNode(
   params: Record<string, unknown> = {}
 ): N8nNode {
   return makeNode(name, `${B}postgres`, params);
+}
+
+export function mysqlNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}mySql`, params);
+}
+
+export function ifNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}if`, params);
+}
+
+export function switchNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}switch`, params);
+}
+
+export function waitNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}wait`, params);
+}
+
+export function splitInBatchesNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}splitInBatches`, params);
+}
+
+export function stickyNoteNode(name: string): N8nNode {
+  return makeNode(name, `${B}stickyNote`, {});
+}
+
+export function mergeNode(
+  name: string,
+  params: Record<string, unknown> = {}
+): N8nNode {
+  return makeNode(name, `${B}merge`, params);
 }
 
 export function genericNode(
