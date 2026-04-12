@@ -1,8 +1,8 @@
-# n8n Workflow Security Analyzer
+# n8n Workflow Analyzer
 
-Static security and data-policy analysis for n8n workflows. Paste a workflow JSON and get a structured report of every vulnerability, misconfiguration, and policy violation — without ever executing the workflow.
+Static analysis for n8n workflows covering security, reliability, performance, maintainability, and operational hygiene. Paste a workflow JSON and get a structured report of every vulnerability, misconfiguration, and design quality issue — without ever executing the workflow.
 
-→ **[Rule Catalogue](RULES.md)** — all 33 rules with descriptions and remediation guidance  
+→ **[Rule Catalogue](RULES.md)** — all 61 rules with descriptions and remediation guidance  
 → **[Development Guide](DEVELOPMENT.md)** — how the engine works, detection techniques, AI layer, test suite
 
 ---
@@ -131,6 +131,12 @@ Summary: 4 violation(s) — 1 critical · 2 high · 1 medium · 18 passed
   Evidence: api.unknown-tracker.io
   → Add this host to APPROVED_EGRESS_HOSTS if authorised, or remove the node.
 
+─── RELIABILITY ───
+
+  ▲ HIGH      [DQ-001] 'Continue on Error' set on critical node "Insert Record"
+  Node: "Insert Record" (n8n-nodes-base.postgres)
+  → Remove continueOnFail or add an explicit IF node to handle the failure case.
+
 ─── EXPRESSION INJECTION ───
 
   ▲ HIGH      [EXP-001] Unsanitised webhook input reaches "Run Script"
@@ -220,6 +226,11 @@ Copy `.env.example` to `.env` and set the values you need:
 | `REDACT_EVIDENCE` | `true` | Mask matched secrets in the `evidence` field |
 | `GEMINI_API_KEY` | `""` | Enables AI analysis and fix suggestions |
 | `N8N_FETCH_TIMEOUT_MS` | `5000` | Timeout for Mode B n8n fetches |
+| `MAX_NODES_BEFORE_DECOMP_WARNING` | `20` | Node count threshold for DQ-005 monolithic workflow warning |
+| `MAX_NODES_HARD_LIMIT` | `40` | Node count that escalates DQ-005 to high severity |
+| `LOOP_RATE_LIMIT_EXEMPTIONS` | `""` | Comma-separated loop node names exempt from DQ-003 |
+| `INCLUDE_ADVISORY` | `true` | Include low-confidence advisory violations (DQ-013, PERF-003) |
+| `CURRENCY_FIELD_NAMES` | `price,amount,total,cost,fee,rate,tax,discount,subtotal` | Field names DQ-012 treats as monetary values |
 
 ### Egress allowlist (DP-006)
 
@@ -247,8 +258,25 @@ Leave it empty (the default) to run without egress enforcement — useful when y
 | Supply Chain | SC-001 – SC-004 | n8n self-API pivot, community nodes, dangerous code patterns, raw content hosts |
 | Data Flow | DF-001 – DF-003 | Webhook echo, DB→cloud exfiltration, DB→chat leakage |
 | Loop & Flow | LF-001 – LF-002 | Sub-minute cron, self-recursive workflow |
+| Reliability | REL-001, REL-002, REL-004, DQ-001, DQ-002, DQ-008, OP-003 | Timeouts, retry backoff, idempotency, continueOnFail overuse, HTTP response validation, DB error handlers |
+| Performance | DQ-003, DQ-004, PERF-001 – PERF-004 | Unthrottled loops, full table scans, N+1 queries, sub-minute polling, unbounded result sets, duplicate API calls |
+| Maintainability | DQ-005 – DQ-007, DQ-011, OP-004, MAINT-001, MAINT-002 | Monolithic workflows, default node names, missing documentation, credential sprawl, deep expression chains |
+| Data Quality | DQ-009, DQ-010, DQ-012, DQ-013 | Webhook input validation, timezone-naive dates, currency rounding, hardcoded business constants |
+| Observability | OP-001, OP-002, OP-005, OP-006 | Execution saving disabled, silent error workflows, ambiguous success states, debug console.log |
 
-Full descriptions and remediation guidance for all 33 rules: **[RULES.md](RULES.md)**
+Full descriptions and remediation guidance for all 61 rules: **[RULES.md](RULES.md)**
+
+---
+
+## Violation confidence levels
+
+Most rules fire only when the evidence is conclusive. Rules that involve graph heuristics or pattern-matching can produce occasional false positives and are tagged with a `confidence` level:
+
+| Level | Meaning |
+|---|---|
+| *(none)* | Certain — the pattern is unambiguous |
+| `probable` | High likelihood but graph traversal may miss context (e.g. dedup check is 5 hops upstream) |
+| `advisory` | Low-confidence heuristic — useful signal but verify before acting. Suppressed by `INCLUDE_ADVISORY=false` |
 
 ---
 
@@ -276,12 +304,26 @@ n8n-workflow-analyzer/
 │   │   │       ├── index.ts            # Orchestrator
 │   │   │       ├── ai.ts               # Gemini: analysis + fix suggestions
 │   │   │       ├── utils.ts            # Walker, URL helpers, graph tools
-│   │   │       └── rules/              # SEC, NET, DP, DN, EXP, HYG, SC, DF, LF
+│   │   │       └── rules/
+│   │   │           ├── credentials.ts  # SEC rules
+│   │   │           ├── network.ts      # NET rules
+│   │   │           ├── data-policy.ts  # DP rules
+│   │   │           ├── dangerous-nodes.ts  # DN rules
+│   │   │           ├── expression-injection.ts  # EXP rules
+│   │   │           ├── hygiene.ts      # HYG rules
+│   │   │           ├── supply-chain.ts # SC rules
+│   │   │           ├── data-flow.ts    # DF rules
+│   │   │           ├── loop-flow.ts    # LF rules
+│   │   │           ├── reliability.ts  # REL/DQ/OP reliability rules
+│   │   │           ├── performance.ts  # DQ/PERF performance rules
+│   │   │           ├── maintainability.ts  # DQ/OP/MAINT rules
+│   │   │           ├── data-quality.ts # DQ data quality rules
+│   │   │           └── observability.ts  # OP observability rules
 │   │   └── tests/
 │   │       ├── helpers.ts
 │   │       ├── orchestrator.test.ts
 │   │       ├── fixtures/
-│   │       └── rules/
+│   │       └── rules/                  # One test file per rule module
 │   │
 │   └── ui/                             # React dashboard
 │       └── src/
