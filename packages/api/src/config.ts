@@ -25,6 +25,16 @@ export interface Config {
   n8nFetchTimeoutMs: number;
   /** CORS origin for the dashboard */
   corsOrigin: string;
+  /** Node count threshold before DQ-005 fires at medium severity */
+  maxNodesDecompWarning: number;
+  /** Node count threshold before DQ-005 escalates to high severity */
+  maxNodesHardLimit: number;
+  /** Node IDs exempt from the unthrottled-loop HTTP check (DQ-003) */
+  loopRateLimitExemptions: Set<string>;
+  /** Whether to include advisory/heuristic violations in output */
+  includeAdvisory: boolean;
+  /** Field names considered currency values for DQ-012 */
+  currencyFieldNames: Set<string>;
 }
 
 const VALID_SEVERITIES: Severity[] = ["low", "medium", "high", "critical"];
@@ -91,6 +101,8 @@ function buildConfig(): Config {
     )
   );
 
+  const DEFAULT_CURRENCY_FIELDS = "price,amount,total,cost,fee,rate,tax,discount,subtotal";
+
   return {
     port: parsePort(process.env.PORT),
     approvedDbHosts,
@@ -102,6 +114,11 @@ function buildConfig(): Config {
     geminiApiKey: process.env.GEMINI_API_KEY?.trim() || null,
     n8nFetchTimeoutMs: parseTimeout(process.env.N8N_FETCH_TIMEOUT_MS),
     corsOrigin: process.env.CORS_ORIGIN ?? "*",
+    maxNodesDecompWarning: parseInt(process.env.MAX_NODES_BEFORE_DECOMP_WARNING ?? "20", 10),
+    maxNodesHardLimit: parseInt(process.env.MAX_NODES_HARD_LIMIT ?? "40", 10),
+    loopRateLimitExemptions: parseCommaSeparatedSet(process.env.LOOP_RATE_LIMIT_EXEMPTIONS),
+    includeAdvisory: parseBoolean(process.env.INCLUDE_ADVISORY, true),
+    currencyFieldNames: parseCommaSeparatedSet(process.env.CURRENCY_FIELD_NAMES || DEFAULT_CURRENCY_FIELDS),
   };
 }
 

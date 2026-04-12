@@ -10,12 +10,26 @@ import {
 describe("analyzeWorkflow — clean workflow", () => {
   it("returns zero violations on a safe workflow", async () => {
     const sched = scheduleNode();
-    const fetch = httpNode("Fetch", { url: "https://api.example.com/data", requestMethod: "GET" });
+    const fetch = httpNode("Fetch", {
+      url: "https://api.example.com/data?page=1&limit=100",
+      requestMethod: "GET",
+      timeout: 10000,
+    });
+    const check = genericNode("Check Response", `${B}if`, {
+      conditions: { boolean: [{ value1: "{{ $json.success }}", value2: true }] },
+    });
     const errHandler = errorTriggerNode();
-    const wf = workflow(
-      [sched, fetch, errHandler],
-      { name: "Daily Data Sync", active: true, connections: chain(sched, fetch) }
-    );
+    const wf = {
+      ...workflow(
+        [sched, fetch, check, errHandler],
+        {
+          name: "Daily Data Sync",
+          active: true,
+          connections: { ...chain(sched, fetch), ...chain(fetch, check) },
+        }
+      ),
+      meta: { description: "Syncs order data daily and notifies on changes. Owned by platform team." },
+    };
     const report = await analyzeWorkflow(wf, defaultConfig);
     expect(report.summary.totalViolations).toBe(0);
     expect(report.violations).toHaveLength(0);

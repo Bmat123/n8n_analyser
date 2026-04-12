@@ -23,6 +23,11 @@ const CATEGORY_LABELS: Record<RuleCategory, string> = {
   supply_chain: "Supply Chain",
   data_flow: "Data Flow",
   loop_flow: "Loop & Flow Control",
+  reliability: "Reliability",
+  performance: "Performance",
+  maintainability: "Maintainability",
+  data_quality: "Data Quality",
+  observability: "Observability",
 };
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as RuleCategory[];
