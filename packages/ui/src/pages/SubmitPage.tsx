@@ -55,6 +55,28 @@ const CATEGORY_LABELS: Record<string, string> = {
   observability: "Observability",
 };
 
+const SECURITY_CATEGORIES = new Set([
+  "credentials",
+  "network",
+  "data_policy",
+  "dangerous_nodes",
+  "expression_injection",
+  "workflow_hygiene",
+  "supply_chain",
+  "data_flow",
+  "loop_flow",
+]);
+
+const DESIGN_CATEGORIES = new Set([
+  "reliability",
+  "performance",
+  "maintainability",
+  "data_quality",
+  "observability",
+]);
+
+type ReportTab = "security" | "design";
+
 const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
 
 const SEVERITY_ORDER: Record<Severity, number> = {
@@ -282,6 +304,7 @@ function AiSection({ title, items, numbered = false }: { title: string; items: s
 }
 
 function Report({ report, workflow, onReset }: { report: AnalysisReport; workflow: N8nWorkflow; onReset: () => void }) {
+  const [tab, setTab] = useState<ReportTab>("security");
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showAll, setShowAll] = useState(false);
@@ -294,10 +317,18 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
     color: SEVERITY_CONFIG[s].color,
   }));
 
-  const categories = [...new Set(violations.map((v) => v.category))].sort();
+  // Split violations by tab
+  const tabViolations = violations.filter((v) =>
+    tab === "security" ? SECURITY_CATEGORIES.has(v.category) : DESIGN_CATEGORIES.has(v.category)
+  );
+
+  const securityCount = violations.filter((v) => SECURITY_CATEGORIES.has(v.category)).length;
+  const designCount = violations.filter((v) => DESIGN_CATEGORIES.has(v.category)).length;
+
+  const categories = [...new Set(tabViolations.map((v) => v.category))].sort();
 
   // Sort by severity first, then stable within each severity level
-  const sorted = [...violations].sort(
+  const sorted = [...tabViolations].sort(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
   );
 
@@ -313,6 +344,13 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
     : filtered.slice(0, MAX_VISIBLE);
 
   const hiddenCount = filtered.length - visible.length;
+
+  const handleTabChange = (t: ReportTab) => {
+    setTab(t);
+    setSeverityFilter("all");
+    setCategoryFilter("all");
+    setShowAll(false);
+  };
 
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
@@ -428,14 +466,42 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
       {/* AI analysis */}
       {aiAnalysis && <AiPanel ai={aiAnalysis} />}
 
+      {/* Tab bar */}
+      {violations.length > 0 && (
+        <div className="flex gap-1 bg-gray-800 p-1 rounded-lg w-fit border border-gray-700">
+          {(["security", "design"] as ReportTab[]).map((t) => {
+            const count = t === "security" ? securityCount : designCount;
+            const label = t === "security" ? "Security" : "Design & Quality";
+            return (
+              <button
+                key={t}
+                onClick={() => handleTabChange(t)}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                  tab === t ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+                    tab === t ? "bg-gray-500 text-white" : "bg-gray-700 text-gray-400"
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Violations list */}
       {violations.length > 0 && (
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <h2 className="text-base font-semibold text-white">
-              Violations
+              {tab === "security" ? "Security violations" : "Design & quality issues"}
               <span className="ml-2 text-gray-500 font-normal text-sm">
-                {filtered.length} / {violations.length}
+                {filtered.length} / {tabViolations.length}
               </span>
             </h2>
 
@@ -448,7 +514,7 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
               >
                 All
               </button>
-              {SEVERITIES.filter((s) => summary[s] > 0).map((s) => (
+              {SEVERITIES.filter((s) => tabViolations.some((v) => v.severity === s)).map((s) => (
                 <button
                   key={s}
                   onClick={() => { setSeverityFilter((f) => (f === s ? "all" : s)); setShowAll(false); }}
@@ -477,7 +543,11 @@ function Report({ report, workflow, onReset }: { report: AnalysisReport; workflo
           </div>
 
           <div className="space-y-2">
-            {filtered.length === 0 ? (
+            {tabViolations.length === 0 ? (
+              <p className="text-gray-500 text-sm py-8 text-center">
+                No {tab === "security" ? "security" : "design & quality"} issues found.
+              </p>
+            ) : filtered.length === 0 ? (
               <p className="text-gray-500 text-sm py-4 text-center">No violations match the current filters.</p>
             ) : (
               visible.map((v, i) => (
