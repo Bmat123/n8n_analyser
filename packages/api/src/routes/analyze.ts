@@ -10,7 +10,12 @@ import {
   FetchError,
 } from "../fetcher.js";
 import { config } from "../config.js";
-import type { N8nWorkflow } from "@n8n-analyzer/types";
+import { buildPropertyGraph } from "../graph/builder.js";
+import { runGraphPatterns } from "../graph/patterns.js";
+import { runLLMEscalation } from "../graph/llm.js";
+import { betweennessCentrality } from "../graph/algorithms.js";
+import type { Config } from "../config.js";
+import type { N8nWorkflow, GraphAnalysis } from "@n8n-analyzer/types";
 
 // ─── JSON schemas for Fastify validation ─────────────────────────────────────
 
@@ -66,6 +71,66 @@ async function resolveWorkflow(body: Record<string, unknown>): Promise<N8nWorkfl
   throw new Error("Request must include either 'workflow' or 'n8n' field.");
 }
 
+// ─── Graph Analysis Helper ────────────────────────────────────────────────────
+
+async function runGraphAnalysis(workflow: N8nWorkflow, cfg: Config): Promise<GraphAnalysis> {
+  const graph = buildPropertyGraph(workflow);
+  let violations = runGraphPatterns(graph, cfg);
+
+  // LLM escalation — optional, reuses the existing Gemini key
+  let escalatedCount = 0;
+  let confirmedCount = 0;
+  if (cfg.enableLlmAnalysis && cfg.geminiApiKey) {
+    violations = await runLLMEscalation(graph, violations, {
+      geminiApiKey: cfg.geminiApiKey,
+      timeoutMs: cfg.llmTimeoutMs,
+      maxEscalations: cfg.maxLlmEscalations,
+    });
+    escalatedCount = violations.filter((v) => v.escalateToLLM).length;
+    confirmedCount = violations.filter((v) => v.llmConfirmed === true).length;
+  }
+
+  // Compute high-centrality nodes (> centralityStddevThreshold stddev above mean)
+  const centralityMap = betweennessCentrality(graph);
+  const scores = [...centralityMap.values()];
+  const mean = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+  const variance = scores.reduce((a, b) => a + (b - mean) ** 2, 0) / (scores.length || 1);
+  const stddev = Math.sqrt(variance);
+  const threshold = mean + cfg.centralityStddevThreshold * stddev;
+  const highCentralityNodes = [...centralityMap.entries()]
+    .filter(([, score]) => score > threshold)
+    .map(([name]) => name);
+
+  return {
+    enabled: true,
+    metrics: {
+      cyclomaticComplexity: graph.metadata.cyclomaticComplexity,
+      diameter: graph.metadata.diameter,
+      hasCycles: graph.metadata.hasCycles,
+      orphanedNodes: graph.metadata.orphanedNodes,
+      highCentralityNodes,
+    },
+    graphViolations: violations.map((v) => ({
+      ruleId: v.ruleId,
+      severity: v.severity,
+      title: v.title,
+      description: v.description,
+      confidence: v.confidence,
+      affectedNodes: v.affectedNodes,
+      affectedPath: v.affectedPath,
+      evidence: v.evidence,
+      remediation: v.remediation,
+      llmReasoning: v.llmReasoning,
+      llmConfirmed: v.llmConfirmed,
+    })),
+    llmAnalysis: {
+      enabled: cfg.enableLlmAnalysis && !!cfg.geminiApiKey,
+      escalatedViolations: escalatedCount,
+      confirmedByLLM: confirmedCount,
+    },
+  };
+}
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 export async function analyzeRoutes(app: FastifyInstance) {
@@ -90,6 +155,16 @@ export async function analyzeRoutes(app: FastifyInstance) {
       }
 
       const report = await analyzeWorkflow(workflow, config);
+
+      // Graph analysis — optional, gated by ENABLE_GRAPH_ANALYSIS
+      if (config.enableGraphAnalysis) {
+        try {
+          report.graphAnalysis = await runGraphAnalysis(workflow, config);
+        } catch {
+          report.graphAnalysis = null;
+          report.warnings = [...(report.warnings ?? []), "Graph analysis unavailable"];
+        }
+      }
 
       // AI enhancement — optional, never blocks the response
       if (body.ai === true && config.geminiApiKey) {
@@ -119,6 +194,15 @@ export async function analyzeRoutes(app: FastifyInstance) {
         workflows.map(async (item) => {
           const workflow = await resolveWorkflow(item);
           const report = await analyzeWorkflow(workflow, config);
+
+          if (config.enableGraphAnalysis) {
+            try {
+              report.graphAnalysis = await runGraphAnalysis(workflow, config);
+            } catch {
+              report.graphAnalysis = null;
+              report.warnings = [...(report.warnings ?? []), "Graph analysis unavailable"];
+            }
+          }
 
           if (ai && config.geminiApiKey) {
             try {

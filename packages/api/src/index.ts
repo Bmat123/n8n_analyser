@@ -6,6 +6,7 @@ import { healthRoutes } from "./routes/health.js";
 import { rulesRoutes } from "./routes/rules.js";
 import { analyzeRoutes } from "./routes/analyze.js";
 import { fixRoutes } from "./routes/fix.js";
+import { graphRoutes } from "./routes/graph.js";
 
 const app = Fastify({
   logger: false,
@@ -54,6 +55,7 @@ async function bootstrap() {
   await app.register(rulesRoutes);
   await app.register(analyzeRoutes);
   await app.register(fixRoutes);
+  await app.register(graphRoutes);
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   console.log(`n8n Workflow Analyzer API listening on port ${config.port}`);
