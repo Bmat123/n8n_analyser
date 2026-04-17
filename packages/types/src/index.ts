@@ -144,6 +144,8 @@ export interface AnalysisReport {
   metadata: ReportMetadata;
   /** Present only when AI analysis was requested and succeeded */
   aiAnalysis?: AiAnalysis | null;
+  /** Present when graph analysis is enabled */
+  graphAnalysis?: GraphAnalysis | null;
   /** Non-fatal warnings, e.g. "AI analysis unavailable" */
   warnings?: string[];
 }
@@ -180,6 +182,44 @@ export interface BatchAnalyzeRequest {
 export type BatchAnalyzeResponse = Array<
   AnalysisReport | { error: string }
 >;
+
+// ─── Graph Analysis ───────────────────────────────────────────────────────────
+
+export interface GraphViolation {
+  ruleId: string;
+  severity: Severity;
+  title: string;
+  description: string;
+  confidence: "certain" | "probable" | "advisory";
+  affectedNodes: string[];
+  affectedPath?: string[];
+  evidence: string;
+  remediation: string;
+  /** Present when the LLM semantic layer reviewed this violation */
+  llmReasoning?: string;
+  llmConfirmed?: boolean;
+}
+
+export interface GraphMetrics {
+  cyclomaticComplexity: number;
+  diameter: number;
+  hasCycles: boolean;
+  orphanedNodes: string[];
+  highCentralityNodes: string[];
+}
+
+export interface GraphLlmSummary {
+  enabled: boolean;
+  escalatedViolations: number;
+  confirmedByLLM: number;
+}
+
+export interface GraphAnalysis {
+  enabled: true;
+  metrics: GraphMetrics;
+  graphViolations: GraphViolation[];
+  llmAnalysis: GraphLlmSummary;
+}
 
 // ─── Fix Suggestion ───────────────────────────────────────────────────────────
 

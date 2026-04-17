@@ -35,6 +35,22 @@ export interface Config {
   includeAdvisory: boolean;
   /** Field names considered currency values for DQ-012 */
   currencyFieldNames: Set<string>;
+  /** Whether to run graph-based rules alongside JSON rules */
+  enableGraphAnalysis: boolean;
+  /** Whether to escalate ambiguous graph violations to the LLM layer */
+  enableLlmAnalysis: boolean;
+  /** Timeout in ms for LLM calls */
+  llmTimeoutMs: number;
+  /** Max violations escalated to LLM per workflow */
+  maxLlmEscalations: number;
+  /** Standard deviations above mean to flag as high centrality */
+  centralityStddevThreshold: number;
+  /** Cyclomatic complexity threshold for medium severity */
+  maxCyclomaticMedium: number;
+  /** Cyclomatic complexity threshold for high severity */
+  maxCyclomaticHigh: number;
+  /** Max paths computed by pathsBetween before truncation */
+  graphMaxPathCount: number;
 }
 
 const VALID_SEVERITIES: Severity[] = ["low", "medium", "high", "critical"];
@@ -119,6 +135,14 @@ function buildConfig(): Config {
     loopRateLimitExemptions: parseCommaSeparatedSet(process.env.LOOP_RATE_LIMIT_EXEMPTIONS),
     includeAdvisory: parseBoolean(process.env.INCLUDE_ADVISORY, true),
     currencyFieldNames: parseCommaSeparatedSet(process.env.CURRENCY_FIELD_NAMES || DEFAULT_CURRENCY_FIELDS),
+    enableGraphAnalysis: parseBoolean(process.env.ENABLE_GRAPH_ANALYSIS, true),
+    enableLlmAnalysis: parseBoolean(process.env.ENABLE_LLM_ANALYSIS, false),
+    llmTimeoutMs: parseInt(process.env.LLM_TIMEOUT_MS ?? "10000", 10),
+    maxLlmEscalations: parseInt(process.env.MAX_LLM_ESCALATIONS ?? "5", 10),
+    centralityStddevThreshold: parseFloat(process.env.CENTRALITY_STDDEV_THRESHOLD ?? "2.0"),
+    maxCyclomaticMedium: parseInt(process.env.MAX_CYCLOMATIC_MEDIUM ?? "10", 10),
+    maxCyclomaticHigh: parseInt(process.env.MAX_CYCLOMATIC_HIGH ?? "20", 10),
+    graphMaxPathCount: parseInt(process.env.GRAPH_MAX_PATH_COUNT ?? "1000", 10),
   };
 }
 
