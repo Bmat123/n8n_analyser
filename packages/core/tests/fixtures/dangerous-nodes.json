@@ -1,0 +1,50 @@
+{
+  "id": "wf-danger-001",
+  "name": "Server Maintenance",
+  "active": true,
+  "nodes": [
+    {
+      "id": "node-1",
+      "name": "Cron",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [100, 200],
+      "parameters": {}
+    },
+    {
+      "id": "node-2",
+      "name": "Run Cleanup Script",
+      "type": "n8n-nodes-base.executeCommand",
+      "position": [300, 200],
+      "parameters": { "command": "rm -rf /tmp/cache && echo done" }
+    },
+    {
+      "id": "node-3",
+      "name": "SSH Deploy",
+      "type": "n8n-nodes-base.ssh",
+      "position": [500, 200],
+      "parameters": { "command": "cd /app && git pull && npm run build" }
+    },
+    {
+      "id": "node-4",
+      "name": "Transform Data",
+      "type": "n8n-nodes-base.code",
+      "position": [700, 200],
+      "parameters": {
+        "jsCode": "const result = items.map(i => ({ ...i.json, processed: true }));\nconsole.log('Processing', result.length, 'items');\nreturn result.map(r => ({ json: r }));"
+      }
+    },
+    {
+      "id": "node-5",
+      "name": "Read Config",
+      "type": "n8n-nodes-base.readWriteFile",
+      "position": [900, 200],
+      "parameters": { "operation": "read", "filePath": "/etc/app/config.json" }
+    }
+  ],
+  "connections": {
+    "Cron": { "main": [[{ "node": "Run Cleanup Script", "type": "main", "index": 0 }]] },
+    "Run Cleanup Script": { "main": [[{ "node": "SSH Deploy", "type": "main", "index": 0 }]] },
+    "SSH Deploy": { "main": [[{ "node": "Transform Data", "type": "main", "index": 0 }]] },
+    "Transform Data": { "main": [[{ "node": "Read Config", "type": "main", "index": 0 }]] }
+  }
+}
