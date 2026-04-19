@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { ALL_RULES } from "@n8n-analyzer/core";
-import type { RuleCategory, Severity } from "@n8n-analyzer/types";
+import { ALL_RULES } from "@wflow-analyzer/core";
+import type { RuleCategory, Severity } from "@wflow-analyzer/types";
 
 const VALID_CATEGORIES: RuleCategory[] = [
   "credentials", "network", "data_policy",

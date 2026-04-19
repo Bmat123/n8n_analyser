@@ -1,5 +1,5 @@
 {
-  "name": "@n8n-analyzer/server",
+  "name": "@wflow-analyzer/server",
   "version": "1.0.0",
   "description": "Self-hosted Fastify HTTP server for n8n workflow analysis",
   "private": true,
@@ -13,8 +13,8 @@
   "dependencies": {
     "@fastify/cors": "^9.0.1",
     "@fastify/rate-limit": "^9.1.0",
-    "@n8n-analyzer/core": "*",
-    "@n8n-analyzer/types": "*",
+    "@wflow-analyzer/core": "*",
+    "@wflow-analyzer/types": "*",
     "dotenv": "^17.4.0",
     "fastify": "^4.28.1"
   },

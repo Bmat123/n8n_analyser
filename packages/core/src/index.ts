@@ -1,5 +1,5 @@
 /**
- * @n8n-analyzer/core — public API
+ * @wflow-analyzer/core — public API
  */
 
 // ─── Analysis engine ──────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { AnalysisReport, AiAnalysis, N8nWorkflow, N8nNode, Violation, FixSuggestion } from "@n8n-analyzer/types";
+import type { AnalysisReport, AiAnalysis, N8nWorkflow, N8nNode, Violation, FixSuggestion } from "@wflow-analyzer/types";
 import { analyzeWorkflow } from "./index.js";
 import type { Config } from "../config.js";
 

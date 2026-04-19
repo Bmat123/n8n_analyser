@@ -3,7 +3,7 @@
  * No rule-specific logic lives here — only pure helpers.
  */
 
-import type { N8nNode, N8nWorkflow, N8nConnections } from "@n8n-analyzer/types";
+import type { N8nNode, N8nWorkflow, N8nConnections } from "@wflow-analyzer/types";
 
 // ─── Parameter Walker ─────────────────────────────────────────────────────────
 

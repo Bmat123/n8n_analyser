@@ -1,4 +1,4 @@
-import type { N8nWorkflow, AnalysisReport, Violation, Severity } from "@n8n-analyzer/types";
+import type { N8nWorkflow, AnalysisReport, Violation, Severity } from "@wflow-analyzer/types";
 import type { Config } from "../config.js";
 import { ALL_RULES } from "./rules/index.js";
 

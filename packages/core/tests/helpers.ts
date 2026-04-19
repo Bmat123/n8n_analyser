@@ -13,7 +13,7 @@ import type {
   N8nNode,
   N8nConnections,
   Violation,
-} from "@n8n-analyzer/types";
+} from "@wflow-analyzer/types";
 import type { Config } from "../src/config.js";
 import type { RuleRunner } from "../src/analyzer/types.js";
 

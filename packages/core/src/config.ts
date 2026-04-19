@@ -1,11 +1,11 @@
 /**
- * Config type and builder for @n8n-analyzer/core.
+ * Config type and builder for @wflow-analyzer/core.
  *
  * No dotenv loading here — this is a library. Callers are responsible for
  * populating process.env before calling buildConfig().
  * The self-hosted server (packages/server) loads dotenv before calling this.
  */
-import type { Severity } from "@n8n-analyzer/types";
+import type { Severity } from "@wflow-analyzer/types";
 
 export interface Config {
   port: number;

@@ -1,4 +1,4 @@
-import type { Violation } from "@n8n-analyzer/types";
+import type { Violation } from "@wflow-analyzer/types";
 import type { RuleRunner } from "../types.js";
 import {
   walkNodeParams,

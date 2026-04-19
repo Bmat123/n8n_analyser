@@ -17,9 +17,9 @@
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { join, relative, extname } from "path";
-import { analyzeWorkflow, toSarif } from "@n8n-analyzer/core";
+import { analyzeWorkflow, toSarif } from "@wflow-analyzer/core";
 import { config } from "./config.js";
-import type { AnalysisReport, Violation } from "@n8n-analyzer/types";
+import type { AnalysisReport, Violation } from "@wflow-analyzer/types";
 
 // ─── CLI arg parsing ──────────────────────────────────────────────────────────
 

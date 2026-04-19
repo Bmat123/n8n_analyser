@@ -12,9 +12,9 @@ import {
   toMermaid,
   enumerateAllPaths,
   toKnowledgeGraphTriples,
-} from "@n8n-analyzer/core";
+} from "@wflow-analyzer/core";
 import { config } from "../config.js";
-import type { N8nWorkflow } from "@n8n-analyzer/types";
+import type { N8nWorkflow } from "@wflow-analyzer/types";
 
 // ─── JSON schemas ─────────────────────────────────────────────────────────────
 

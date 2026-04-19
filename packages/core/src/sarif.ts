@@ -8,7 +8,7 @@
  * Spec: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
  */
 
-import type { AnalysisReport, Violation, RuleDefinition } from "@n8n-analyzer/types";
+import type { AnalysisReport, Violation, RuleDefinition } from "@wflow-analyzer/types";
 import { ALL_RULES } from "./analyzer/rules/index.js";
 
 // ─── SARIF level mapping ──────────────────────────────────────────────────────

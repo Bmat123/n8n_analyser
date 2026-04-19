@@ -1,8 +1,8 @@
 /**
  * Internal type definitions for the graph analysis engine.
- * Only response-surface types are exported from @n8n-analyzer/types.
+ * Only response-surface types are exported from @wflow-analyzer/types.
  */
-import type { Severity } from "@n8n-analyzer/types";
+import type { Severity } from "@wflow-analyzer/types";
 
 // ─── NodeCategory ─────────────────────────────────────────────────────────────
 

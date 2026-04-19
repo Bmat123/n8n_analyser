@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { suggestFix } from "@n8n-analyzer/core";
+import { suggestFix } from "@wflow-analyzer/core";
 import { config } from "../config.js";
 
 const fixSchema = {

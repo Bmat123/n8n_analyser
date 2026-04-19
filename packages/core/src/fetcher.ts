@@ -4,7 +4,7 @@
  */
 
 import axios, { AxiosError } from "axios";
-import type { N8nWorkflow } from "@n8n-analyzer/types";
+import type { N8nWorkflow } from "@wflow-analyzer/types";
 
 // ─── Typed error classes ──────────────────────────────────────────────────────
 

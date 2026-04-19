@@ -1,5 +1,5 @@
 {
-  "name": "@n8n-analyzer/core",
+  "name": "@wflow-analyzer/core",
   "version": "1.0.0",
   "description": "n8n workflow static analysis engine — rules, graph patterns, and AI layer",
   "keywords": ["n8n", "workflow", "security", "static-analysis", "linter"],
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@n8n-analyzer/types": "*",
+    "@wflow-analyzer/types": "*",
     "axios": "^1.7.2"
   },
   "devDependencies": {

@@ -12,10 +12,10 @@ import {
   runGraphPatterns,
   runLLMEscalation,
   betweennessCentrality,
-} from "@n8n-analyzer/core";
+} from "@wflow-analyzer/core";
 import { config } from "../config.js";
-import type { Config } from "@n8n-analyzer/core";
-import type { N8nWorkflow, GraphAnalysis } from "@n8n-analyzer/types";
+import type { Config } from "@wflow-analyzer/core";
+import type { N8nWorkflow, GraphAnalysis } from "@wflow-analyzer/types";
 
 // ─── JSON schemas for Fastify validation ─────────────────────────────────────
 

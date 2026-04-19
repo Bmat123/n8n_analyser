@@ -2,7 +2,7 @@
  * Graph Builder — converts n8n workflow JSON into a PropertyGraph.
  * Pure function, no side effects.
  */
-import type { N8nWorkflow, N8nNode } from "@n8n-analyzer/types";
+import type { N8nWorkflow, N8nNode } from "@wflow-analyzer/types";
 import {
   NodeCategory,
   type PropertyGraph,
