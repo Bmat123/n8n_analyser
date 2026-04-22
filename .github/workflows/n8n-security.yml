@@ -1,0 +1,68 @@
+# n8n Workflow Security Scan
+#
+# This workflow scans all n8n workflow JSON files committed to the repository
+# for security vulnerabilities and policy violations.
+#
+# Results appear in:
+#   - The Actions tab (step summary with counts)
+#   - The Security → Code scanning tab (full findings with remediation guidance)
+#   - Pull request annotations (inline comments on changed files)
+#
+# Setup:
+#   1. Export your n8n workflows as JSON (Workflow → ⋮ → Export → Download)
+#   2. Commit them to a directory in this repo (e.g. .n8n/workflows/)
+#   3. Update the workflow-path input below to match that directory
+#
+# Permissions required:
+#   - contents: read     (to check out the repo)
+#   - security-events: write  (to upload SARIF to Code Scanning)
+
+name: n8n Security Scan
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "**.json"          # re-scan whenever any JSON file changes
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "**.json"
+  schedule:
+    - cron: "0 3 * * 1"   # weekly re-scan every Monday at 03:00 UTC
+  workflow_dispatch:       # allow manual trigger from the Actions tab
+
+permissions:
+  contents: read
+  security-events: write   # required for Code Scanning upload
+
+jobs:
+  n8n-security:
+    name: Scan n8n workflows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scan workflows
+        uses: Bmat123/n8n_analyser@main
+        with:
+          # Path to your n8n workflow JSON files.
+          # Change this to wherever you store exported workflows.
+          workflow-path: "."
+
+          # Minimum severity to include in SARIF results.
+          # Choices: low | medium | high | critical
+          severity-threshold: "low"
+
+          # Fail the CI job when violations at or above this level are found.
+          # Choices: critical | high | medium | none
+          fail-on: "high"
+
+          # Rule IDs to suppress globally (comma-separated).
+          # Example: "HYG-002,DP-005"
+          disabled-rules: ""
+
+          # Upload findings to GitHub Code Scanning.
+          upload-sarif: "true"

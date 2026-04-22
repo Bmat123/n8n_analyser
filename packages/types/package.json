@@ -1,7 +1,10 @@
 {
-  "name": "@n8n-analyzer/types",
+  "name": "@wflow-analyzer/types",
   "version": "1.0.0",
-  "private": true,
+  "description": "Shared TypeScript types for the n8n workflow analyzer",
+  "keywords": ["n8n", "workflow", "types", "typescript"],
+  "license": "MIT",
+  "files": ["dist", "README.md"],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
