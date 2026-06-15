@@ -232,6 +232,7 @@ export function buildAdjacencyList(
     if (!graph.has(sourceName)) graph.set(sourceName, new Set());
 
     for (const outputGroup of outputs.main ?? []) {
+      if (!outputGroup) continue; // null entry = unconnected output port
       for (const conn of outputGroup) {
         graph.get(sourceName)!.add(conn.node);
         if (!graph.has(conn.node)) graph.set(conn.node, new Set());
@@ -346,6 +347,7 @@ export function buildReverseAdjacencyList(
   const graph = new Map<string, Set<string>>();
   for (const [sourceName, outputs] of Object.entries(connections)) {
     for (const outputGroup of outputs.main ?? []) {
+      if (!outputGroup) continue; // null entry = unconnected output port
       for (const conn of outputGroup) {
         if (!graph.has(conn.node)) graph.set(conn.node, new Set());
         graph.get(conn.node)!.add(sourceName);
@@ -439,6 +441,7 @@ export function buildPortedAdjacencyList(
     if (!graph.has(sourceName)) graph.set(sourceName, []);
     const outGroups = outputs.main ?? [];
     outGroups.forEach((group, portIndex) => {
+      if (!group) return; // null entry = unconnected output port
       for (const conn of group) {
         graph.get(sourceName)!.push({ node: conn.node, outputIndex: portIndex });
       }

@@ -60,7 +60,7 @@ runs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: "24"
 
     - name: Install analyzer
       shell: bash
@@ -68,11 +68,13 @@ runs:
         cd ${{ github.action_path }}
         npm ci --ignore-scripts
 
-    - name: Build shared types
+    - name: Build packages
       shell: bash
       run: |
         cd ${{ github.action_path }}
-        npm run build -w @n8n-analyzer/types
+        npm run build -w @wflow-analyzer/types
+        npm run build -w @wflow-analyzer/core
+        npm run build -w api
 
     - name: Run security analysis
       id: analyze
@@ -88,7 +90,7 @@ runs:
 
         # Run the analyzer — output SARIF to the specified file
         if [ -n "$SARIF_FILE" ]; then
-          node ${{ github.action_path }}/packages/api/src/cli.ts \
+          node ${{ github.action_path }}/packages/api/dist/cli.js \
             --format sarif \
             --output "$SARIF_FILE" \
             "${{ inputs.workflow-path }}" \
@@ -135,13 +137,13 @@ runs:
           fi
         else
           # No SARIF — just run in text mode and let CLI handle exit code
-          node ${{ github.action_path }}/packages/api/src/cli.ts \
+          node ${{ github.action_path }}/packages/api/dist/cli.js \
             "${{ inputs.workflow-path }}"
         fi
 
     - name: Upload SARIF to GitHub Code Scanning
       if: inputs.upload-sarif == 'true' && inputs.sarif-output != '' && always()
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: ${{ inputs.sarif-output }}
         category: "n8n-security"

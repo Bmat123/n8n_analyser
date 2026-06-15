@@ -179,6 +179,7 @@ export function buildPropertyGraph(workflow: N8nWorkflow): PropertyGraph {
   for (const [sourceName, outputs] of Object.entries(workflow.connections)) {
     const outGroups = outputs.main ?? [];
     outGroups.forEach((group, portIndex) => {
+      if (!group) return; // null entry = unconnected output port
       for (const conn of group) {
         const targetName = conn.node;
         const edge: GraphEdge = {
