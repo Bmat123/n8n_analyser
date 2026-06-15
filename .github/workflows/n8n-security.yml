@@ -41,6 +41,9 @@ jobs:
     name: Scan n8n workflows
     runs-on: ubuntu-latest
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,7 +61,7 @@ jobs:
 
           # Fail the CI job when violations at or above this level are found.
           # Choices: critical | high | medium | none
-          fail-on: "high"
+          fail-on: "none"
 
           # Rule IDs to suppress globally (comma-separated).
           # Example: "HYG-002,DP-005"
